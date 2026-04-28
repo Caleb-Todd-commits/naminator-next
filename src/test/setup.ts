@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom";
+import { afterEach, beforeEach, vi } from "vitest";
 import { TextEncoder, TextDecoder } from "util";
+
 Object.assign(globalThis, { TextEncoder, TextDecoder });
 
 beforeEach(() => {

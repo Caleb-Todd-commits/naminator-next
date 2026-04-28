@@ -18,7 +18,7 @@ export async function generateNameCombinations(
   name2: string
 ): Promise<GeneratedNameResult[]> {
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     messages: [
       {
@@ -44,7 +44,12 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
 [
   { "name": "ExampleName", "goodness": 3.5 },
   { "name": "AnotherName", "goodness": 4.2 }
-]`,
+]
+  
+DO NOT include any additional text or formatting outside of the JSON array.
+`,
+
+
       },
     ],
   });

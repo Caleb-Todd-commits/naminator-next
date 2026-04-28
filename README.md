@@ -68,17 +68,17 @@ npm install
 ### 2. Create Environment File
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Then edit `.env` and fill in all values (see below for each service).
+Then edit `.env.local` and fill in all values (see below for each service). Next.js automatically loads `.env.local` for local development, and this file must stay out of git because it can contain real secrets.
 
 ### 3. Set Up Neon PostgreSQL
 
 1. Go to [neon.tech](https://neon.tech) and sign up (free).
 2. Create a new project.
 3. Copy the connection string from the dashboard.
-4. Paste it as `DATABASE_URL` in your `.env` file.
+4. Paste it as `DATABASE_URL` in your `.env.local` file.
 
 ### 4. Set Up Google OAuth
 
@@ -88,7 +88,7 @@ Then edit `.env` and fill in all values (see below for each service).
 4. Click **Create Credentials → OAuth client ID**.
 5. Choose **Web application**.
 6. Add an **Authorized redirect URI**: `http://localhost:3000/api/auth/callback/google`
-7. Copy the **Client ID** and **Client Secret** into your `.env`:
+7. Copy the **Client ID** and **Client Secret** into your `.env.local`:
    - `AUTH_GOOGLE_ID` = Client ID
    - `AUTH_GOOGLE_SECRET` = Client Secret
 
@@ -98,13 +98,13 @@ Then edit `.env` and fill in all values (see below for each service).
 openssl rand -base64 32
 ```
 
-Paste the output as `AUTH_SECRET` in your `.env`.
+Paste the output as `AUTH_SECRET` in your `.env.local`.
 
 ### 6. Get Anthropic API Key
 
 1. Go to [console.anthropic.com](https://console.anthropic.com).
 2. Create an API key.
-3. Paste it as `ANTHROPIC_API_KEY` in your `.env`.
+3. Paste it as `ANTHROPIC_API_KEY` in your `.env.local`.
 
 ### 7. Push Database Schema
 
@@ -185,6 +185,30 @@ NameCombinationSet          GeneratedName
 | `npm run db:push`    | Push schema to database (no migrations)  |
 | `npm run db:migrate` | Create and apply a migration             |
 | `npm run db:studio`  | Open Prisma Studio (visual DB browser)   |
+
+## CI and Environment Variables
+
+This project uses GitHub Actions in `.github/workflows/ci.yml` to install dependencies, lint, test, build, and upload the Next.js build artifact on pushes and pull requests to `main`. The workflow runs on Node 20 and Node 22, uses npm caching, and cancels outdated runs for the same branch or pull request.
+
+Add `DATABASE_URL` as a repository secret in GitHub under **Settings -> Secrets and variables -> Actions -> New repository secret**. The workflow injects it at the job level with:
+
+```yaml
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+```
+
+`.env.local` should never be committed because it is intended for developer-specific local values and can contain production-like credentials, OAuth secrets, API keys, or database passwords. The repository includes `.env.example` as a safe template instead.
+
+GitHub Secrets are safer than plain workflow environment variables because secret values are stored separately from the repository, access is controlled by GitHub permissions, and matching values are masked in Actions logs. Plain environment variables written directly in YAML are visible to anyone who can read the repository.
+
+If the workflow contained this:
+
+```yaml
+env:
+  DATABASE_URL: "hardcoded-value"
+```
+
+the value would be committed to source control, visible in pull requests and history, and difficult to rotate safely. It would also hide missing-secret problems in CI because the build would receive the hardcoded value instead of proving that the repository secret is configured.
 
 ## Troubleshooting
 

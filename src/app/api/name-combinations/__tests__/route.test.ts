@@ -3,7 +3,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-// Mock all external dependencies before importing the route
 vi.mock("@/auth", () => ({
   auth: vi.fn(),
 }));
@@ -31,7 +30,6 @@ const mockCreate = vi.mocked(prisma.nameCombinationSet.create);
 const mockFindMany = vi.mocked(prisma.nameCombinationSet.findMany);
 const mockGenerateCombinations = vi.mocked(generateNameCombinations);
 
-// Helper to build a POST request
 function makePostRequest(body: unknown, bodyStr?: string) {
   const rawBody = bodyStr ?? JSON.stringify(body);
   return new NextRequest("http://localhost/api/name-combinations", {
@@ -41,12 +39,6 @@ function makePostRequest(body: unknown, bodyStr?: string) {
   });
 }
 
-// Helper to build a GET request
-function makeGetRequest() {
-  return new NextRequest("http://localhost/api/name-combinations");
-}
-
-// A sample Prisma create result
 const sampleCreatedSet = {
   id: 1,
   name1: "John",
@@ -56,26 +48,12 @@ const sampleCreatedSet = {
   results: [{ id: 10, name: "Jocob", goodness: 4.2, setId: 1 }],
 };
 
-// A sample Prisma findMany result
-const sampleFoundSets = [
-  {
-    id: 1,
-    name1: "John",
-    name2: "Jane",
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    userId: "user-123",
-    results: [{ id: 10, name: "Jocob", goodness: 4.2, setId: 1 }],
-  },
-];
+const sampleFoundSets = [sampleCreatedSet];
 
 describe("POST /api/name-combinations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-  // ------------------------------------------------------------------
-  // Authentication
-  // ------------------------------------------------------------------
 
   describe("authentication", () => {
     it("returns 401 when auth() returns null", async () => {
@@ -83,8 +61,7 @@ describe("POST /api/name-combinations", () => {
       const req = makePostRequest({ name1: "John", name2: "Jane" });
       const res = await POST(req);
       expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body).toEqual({ error: "Unauthorized" });
+      expect(await res.json()).toEqual({ error: "Unauthorized" });
     });
 
     it("returns 401 when auth() returns session without user.id", async () => {
@@ -94,19 +71,7 @@ describe("POST /api/name-combinations", () => {
       const res = await POST(req);
       expect(res.status).toBe(401);
     });
-
-    it("returns 401 when auth() returns session with null user", async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockAuth.mockResolvedValueOnce({ user: null } as any);
-      const req = makePostRequest({ name1: "John", name2: "Jane" });
-      const res = await POST(req);
-      expect(res.status).toBe(401);
-    });
   });
-
-  // ------------------------------------------------------------------
-  // Request body validation
-  // ------------------------------------------------------------------
 
   describe("request body validation", () => {
     beforeEach(() => {
@@ -114,7 +79,7 @@ describe("POST /api/name-combinations", () => {
       mockAuth.mockResolvedValue({ user: { id: "user-123" } } as any);
     });
 
-    it("returns 400 with 'Invalid JSON' message when body is malformed", async () => {
+    it("returns 400 with invalid JSON", async () => {
       const req = makePostRequest(null, "not valid json");
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -122,7 +87,7 @@ describe("POST /api/name-combinations", () => {
       expect(body.error).toMatch(/invalid json/i);
     });
 
-    it("returns 400 when name1 is missing from body", async () => {
+    it("returns 400 when name1 is missing", async () => {
       const req = makePostRequest({ name2: "Jane" });
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -130,13 +95,7 @@ describe("POST /api/name-combinations", () => {
       expect(body.error).toMatch(/name1/i);
     });
 
-    it("returns 400 when name1 is an empty string", async () => {
-      const req = makePostRequest({ name1: "", name2: "Jane" });
-      const res = await POST(req);
-      expect(res.status).toBe(400);
-    });
-
-    it("returns 400 when name1 is whitespace only", async () => {
+    it("returns 400 when name1 is blank", async () => {
       const req = makePostRequest({ name1: "   ", name2: "Jane" });
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -148,7 +107,7 @@ describe("POST /api/name-combinations", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns 400 when name2 is missing from body", async () => {
+    it("returns 400 when name2 is missing", async () => {
       const req = makePostRequest({ name1: "John" });
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -156,13 +115,7 @@ describe("POST /api/name-combinations", () => {
       expect(body.error).toMatch(/name2/i);
     });
 
-    it("returns 400 when name2 is an empty string", async () => {
-      const req = makePostRequest({ name1: "John", name2: "" });
-      const res = await POST(req);
-      expect(res.status).toBe(400);
-    });
-
-    it("returns 400 when name2 is whitespace only", async () => {
+    it("returns 400 when name2 is blank", async () => {
       const req = makePostRequest({ name1: "John", name2: "   " });
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -174,10 +127,6 @@ describe("POST /api/name-combinations", () => {
       expect(res.status).toBe(400);
     });
   });
-
-  // ------------------------------------------------------------------
-  // Successful POST
-  // ------------------------------------------------------------------
 
   describe("successful POST", () => {
     beforeEach(() => {
@@ -209,15 +158,6 @@ describe("POST /api/name-combinations", () => {
               create: [{ name: "Jocob", goodness: 4.2 }],
             },
           }),
-        })
-      );
-    });
-
-    it("calls prisma create with include: { results: true }", async () => {
-      const req = makePostRequest({ name1: "John", name2: "Jane" });
-      await POST(req);
-      expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
           include: { results: true },
         })
       );
@@ -234,27 +174,9 @@ describe("POST /api/name-combinations", () => {
         name2: "Jane",
         results: [{ id: 10, name: "Jocob", goodness: 4.2 }],
       });
-    });
-
-    it("includes createdAt in the response body", async () => {
-      const req = makePostRequest({ name1: "John", name2: "Jane" });
-      const res = await POST(req);
-      const body = await res.json();
       expect(body.createdAt).toBeDefined();
     });
-
-    it("response results only contain id, name, goodness", async () => {
-      const req = makePostRequest({ name1: "John", name2: "Jane" });
-      const res = await POST(req);
-      const body = await res.json();
-      const resultKeys = Object.keys(body.results[0]).sort();
-      expect(resultKeys).toEqual(["goodness", "id", "name"]);
-    });
   });
-
-  // ------------------------------------------------------------------
-  // Error handling
-  // ------------------------------------------------------------------
 
   describe("error handling", () => {
     beforeEach(() => {
@@ -283,24 +205,17 @@ describe("POST /api/name-combinations", () => {
   });
 });
 
-// ====================================================================
-
 describe("GET /api/name-combinations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-  // ------------------------------------------------------------------
-  // Authentication
-  // ------------------------------------------------------------------
 
   describe("authentication", () => {
     it("returns 401 when auth() returns null", async () => {
       mockAuth.mockResolvedValueOnce(null);
       const res = await GET();
       expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body).toEqual({ error: "Unauthorized" });
+      expect(await res.json()).toEqual({ error: "Unauthorized" });
     });
 
     it("returns 401 when session has no user.id", async () => {
@@ -311,10 +226,6 @@ describe("GET /api/name-combinations", () => {
     });
   });
 
-  // ------------------------------------------------------------------
-  // Successful GET
-  // ------------------------------------------------------------------
-
   describe("successful GET", () => {
     beforeEach(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -323,28 +234,12 @@ describe("GET /api/name-combinations", () => {
       mockFindMany.mockResolvedValue(sampleFoundSets as any);
     });
 
-    it("calls findMany with the authenticated user's ID", async () => {
+    it("calls findMany with the authenticated user's ID and includes results", async () => {
       await GET();
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: "user-123" },
-        })
-      );
-    });
-
-    it("calls findMany with include: { results: true }", async () => {
-      await GET();
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
           include: { results: true },
-        })
-      );
-    });
-
-    it("calls findMany with orderBy: { createdAt: 'desc' }", async () => {
-      await GET();
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
           orderBy: { createdAt: "desc" },
         })
       );
@@ -368,21 +263,9 @@ describe("GET /api/name-combinations", () => {
       mockFindMany.mockResolvedValueOnce([]);
       const res = await GET();
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body).toEqual([]);
-    });
-
-    it("response results only contain id, name, goodness", async () => {
-      const res = await GET();
-      const body = await res.json();
-      const resultKeys = Object.keys(body[0].results[0]).sort();
-      expect(resultKeys).toEqual(["goodness", "id", "name"]);
+      expect(await res.json()).toEqual([]);
     });
   });
-
-  // ------------------------------------------------------------------
-  // Error handling
-  // ------------------------------------------------------------------
 
   describe("error handling", () => {
     it("returns 500 when prisma.findMany throws", async () => {

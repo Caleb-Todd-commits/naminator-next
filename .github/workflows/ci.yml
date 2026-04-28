@@ -104,3 +104,4 @@ jobs:
           name: next-build-node-${{ matrix.node-version }}
           path: .next
           if-no-files-found: error
+          include-hidden-files: true
